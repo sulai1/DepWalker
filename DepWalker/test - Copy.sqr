@@ -1,0 +1,1363 @@
+﻿
+
+!**+----------------------------------------------------------------------------
+!*H|  INCLUDE           : xdu_tools2.inc
+!*H|  ERSTELLT AM       : 23/02/2007
+!*H|  PROGRAMMIERER     : GIWE
+!*H|  BETREUER          : ALCH/MOJU/GIWE
+!  |----------------------------------------------------------------------------
+!*D|  BESCHREIBUNG      : INCLUDE FILE F�R ALLE  LETRA REPORTS
+!*D|  			  		  
+!  |----------------------------------------------------------------------------
+!  |----------------------------------------------------------------------------
+!*A|  �NDERUNGEN        :
+!*A|----------------------------------------------------------------------------
+!*A|  USER DATUM  		: Beschreibung
+!*A|  GIWE 04052007 	: MOVE von tmp auf err aktiviert f�r raise_err mit 2
+!*A|					     wenn $TmpOutput und $ErrOutput gestezt, wird gemoved
+!*A|  GIWE 04052007 	: Error Handling 
+!*A|  GIWE 04052007 	: DEPRECATED raise_err,to_adrid			  
+!*A|  BETA 20071005  : Zwischenl�sung f�r LAF_TEXT Update
+!*A|  GIWE 20071017  : neue function AppendLafText_top 
+!*A|  GIWE 20071017	: Zwischenloesung fuer error geandert
+!*A|  GIWE 20071017	: umkehrung der Meldungsfolge
+!*A|  GIWE 20080912	: Alle Error-Mails werden nun zus�tzlich an 
+!*A|                   edi_info@logwin-logistics.com geschickt.
+!*A|  BETA 20090618	: ELIV Projekt Codeumsetzung f�r HOP (XH)
+!*A|  BETA 20090902  : ELIV Projekt neue Logik f�r den Bahnhof des LCD
+!*A|  BETA 20091009  : CR9838 order by desc entfernt
+!*A|  BETA 20091030  : ELIV Projekt LCD_ADRID via SDG ZAT XRB_LCDBHF (adr_prt_lcd)
+!*A|  BETA 20091112  : ELIV Projekt Reihenfolge der LCD-Ermittlung �berarbeitet (adr_prt_lcd)
+!*A|  BETA 20100812: : CR12476 XRB_HOPBHF auch umsetzen
+
+!*A|  BETA 20131129  : EMAIL Adresse angepasst
+!*A|  BETA 20160725  : Zeitraum f�r Sendungssuche auf 60 Tage reduziert
+!*A|  SEJO 20160823  : CR 21402  Weitere EMAIL-Adresse MG_WIEN.NAFTA hinzugef�gt
+!*A|  SEJO 20161004  : CR 21530  Beschr�nkung Mail auf Report xrb_scan
+!*A|  BETA 20180221  : CR 23384 LINUX Anpassung
+!*A|  BETA 20181106  : CR 23384 LINUX Anpassung
+!**+----------------------------------------------------------------------------
+
+#define XDU2_SCAC 	 5068403
+#define XDU2_UNLOC	 901356 
+#define XDU2_CODEADRID   5068403
+#define date_li_short 'YYYY.MM.DD'
+#define date_li_long  'YYYY.MM.DD HH24:Mi:ss' !comment
+
+#include 'xdu_tools.inc'
+
+! STDERRMAIL if ERRMAIL is not defined by the report
+#define STDERRMAIL	'seavienna.solutions-at@logwin-logistics.com taoufik.benmoussa@logwin-logistics.com'
+!#define STDERRMAIL 'werner.inmann@logwin-logistics.com'
+! ERRMAIL ABS
+#define ERRMAILFROM	'donotreply@logwin-logistics.com'
+! BETA 20080912 : Alle Error-Mails werden nun zus�tzlich an edi_info@logwin-logistics.com geschickt.
+#define ALWAYSTO 	   'tms.as@logwin-logistics.com'
+! err flag
+#define ERR_FLAG '(ERROR) '
+! debug flag
+#define TOOLS_FLAG 'XDU_TOOLS:: '
+
+! ERRORTYPES
+#define WARNMAIL2 	7
+#define FATALUSR	6
+#define FATALNOMAIL 5
+#define WARNMAIL 	4
+#define RETRYNOMAIL 3
+#define FATALMAIL 	2	
+#define FATALQUIET	1
+
+
+!------------------------------------------------------------------------------
+! PRINT FUNCTIONS
+!------------------------------------------------------------------------------
+!******************************************************************************
+
+!******************************************************************************
+begin-procedure adr_prt ( #FileNo,$adrid_in, $typ,$sep,$cr )  ! Druckt Adr Daten
+!******************************************************************************
+show {TOOLS_FLAG} 'adr prt with adrid: ' $adrid_in ' typ ' $typ	
+	
+begin-select
+!BETA 20090618: ELIV Projekt Codeumsetzung f�r HOP (XH)
+decode($typ, 'XH', nvl(scdu.get_code('EXT', 'HOP_UMSCHLAGSPARTNER', {XDU2_SCAC}, adr_adrid), adr_adrid) , 
+!BETA 20090902: ELIV Projekt neue Logik f�r den Bahnhof des LCD
+             'LD', nvl(scdu.get_code('EXT', 'XRB_LCDBHF', {XDU2_SCAC}, adr_adrid), adr_adrid),
+       substr(nvl(nvl(scdu.get_code('EXT', 'UNLOC',{XDU2_UNLOC}, adr_adrid),
+	scdu.get_code('EXT', 'SCAC', {XDU2_SCAC}, adr_adrid)),
+	adr_adrid),1,10))						&adr_scdu
+substr(adr_name1,1,35) 						&adr_name1
+substr(adr_name2,1,35)						&adr_name2
+substr(adr_str,1,35)						&adr_str
+substr(adr_str2,1,35)						&adr_str2
+substr(adr_staid,1,2)						&adr_staid
+substr(adr_plz,1,10)						&adr_plz
+substr(adr_ort,1,35)						&adr_ort
+
+	write #FileNo from 
+	'ADR'			$sep
+	$typ 			$sep  ! Adresstyp YH,YA,LD,CA
+	&adr_scdu		$sep
+	&adr_name1		$sep
+	&adr_name2		$sep
+	&adr_str 		$sep
+	&adr_str2 		$sep
+	&adr_staid		$sep
+	&adr_plz		$sep
+	&adr_ort		$cr
+
+from SADR_ADRESSE where
+adr_adrid = $adrid_in
+end-select
+
+end-procedure
+
+
+!******************************************************************************
+begin-procedure adr_prt_lcd ( #FileNo,$sdgid, $sep,$cr )  ! Druckt Adr Daten
+!******************************************************************************
+!BETA 20091030: ELIV Projekt LCD_ADRID via SDG ZAT XRB_LCDBHF (adr_prt_lcd)
+!LCD wird wie folgt ermittelt:
+!1. Zusatzattribut der Sendung (XRB_LCDBHF) bzw. die entsprechende Codeumsetzung mit ATTID=XRB_LCDBHF falls diese vorhanden ist
+!2. Zusatzattribut der Sendung (BHFADRID) bzw. die entsprechende Codeumsetzung mit ATTID=XRB_LCDBHF falls diese vorhanden ist
+!3. Adresse des LCD aus der Sendung bzw. die entsprechende Codeumsetzung mit ATTID=XRB_LCDBHF falls diese vorhanden ist.
+!BETA 20091112  : ELIV Projekt Reihenfolge der LCD-Ermittlung �berarbeitet (adr_prt_lcd)
+show {TOOLS_FLAG} 'adr_prt_lcd with sdgid: ' $sdgid 
+
+begin-select
+nvl(scdu.get_code('EXT', 'XRB_LCDBHF', {XDU2_SCAC}, ssba.get_ssba(sda_sdgid, 0, 'XRB_LCDBHF')),
+    ssba.get_ssba(sda_sdgid, 0, 'XRB_LCDBHF')) &lcd1
+nvl(scdu.get_code('EXT', 'XRB_LCDBHF', {XDU2_SCAC}, ssba.get_ssba(sda_sdgid, 0, 'BHFADRID')), 
+    ssba.get_ssba(sda_sdgid, 0, 'BHFADRID'))   &lcd2
+nvl(scdu.get_code('EXT', 'XRB_LCDBHF', {XDU2_SCAC}, to_char(adr_adrid)),
+    to_char(adr_adrid))                        &lcd3
+substr(adr_name1,1,35)             &lcd_name1
+substr(adr_name2,1,35)             &lcd_name2
+substr(adr_str,1,35)               &lcd_str
+substr(adr_str2,1,35)              &lcd_str2
+substr(adr_staid,1,2)              &lcd_staid
+substr(adr_plz,1,10)               &lcd_plz
+substr(adr_ort,1,35)               &lcd_ort
+
+	let $lcd_adrid = nvl(&lcd1, nvl(&lcd2, &lcd3))
+   write #FileNo from
+   'ADR'        $sep
+   'LD'         $sep  ! Adresstyp LD
+   $lcd_adrid   $sep
+   &lcd_name1   $sep
+   &lcd_name2   $sep
+   &lcd_str     $sep
+   &lcd_str2    $sep
+   &lcd_staid   $sep
+   &lcd_plz     $sep
+   &lcd_ort     $cr
+
+from SADR_ADRESSE, ssda_sdgadr  where
+adr_adrid = sda_adrid
+and sda_satid = 'LD'
+and sda_sdgid = $sdgid
+end-select
+
+end-procedure
+
+
+!******************************************************************************
+begin-procedure adr_prt_short ( #FileNo,$adrid_in, $typ,$sep,$cr )  ! Druckt Adr Daten
+!******************************************************************************
+	
+	if isblank($adrid_in) = 0
+		write #FileNo from 
+		'ADR'			$sep
+		$typ 			$sep 
+		$adrid_in		$cr
+	end-if
+end-procedure
+
+
+!******************************************************************************
+begin-procedure zat_prt (  #FileNo,$sdgid,$sep,$cr )! Zusatzattribute auf der sendung 
+!******************************************************************************
+
+begin-select 
+substr(sba_attid,1,15) 	&zat_attid
+!BETA 20090902: ELIV Projekt neue Logik f�r den Bahnhof des LCD
+!BETA 20100812: CR12476 XRB_HOPBHF auch umsetzen
+decode(sba_attid, 'XRB_LCDBHF', nvl(scdu.get_code('EXT', 'XRB_LCDBHF', 5068403, substr(sba_wert,1,250)),
+                                nvl(saat.get_saat(sba_wert,'BHFADRID'), substr(sba_wert,1,250))),
+                  'XRB_HOPBHF', nvl(scdu.get_code('EXT', 'XRB_HOPBHF', 5068403, substr(sba_wert,1,250)),
+                                nvl(saat.get_saat(sba_wert,'BHFADRID'), substr(sba_wert,1,250)))								
+   , substr(sba_wert,1,250)) 	&zat_wert
+	write #FileNo from 
+	'ZAT'			$sep
+	&zat_attid		$sep
+	&zat_wert		$cr
+from SSBA_ATTR where sba_sdgid = $sdgid 	
+and sba_lfzl = 0
+end-select
+
+end-procedure 
+
+
+!******************************************************************************
+begin-procedure zat_prt_some (  #FileNo,$sdgid,$sep,$cr,$somenot )! Zusatzattribute auf der sendung 
+!******************************************************************************
+
+!if instr ('NOT'
+
+begin-select 
+substr(sba_attid,1,15) 	&zat_attid
+substr(sba_wert,1,250) 	&zat_wert
+	write #FileNo from 
+	'ZAT'			$sep
+	&zat_attid		$sep
+	&zat_wert		$cr
+from SSBA_ATTR where sba_sdgid = $sdgid 	
+end-select
+
+end-procedure 
+
+
+!------------------------------------------------------------------------------
+! HELPER FUNCTIONS
+!------------------------------------------------------------------------------
+
+!**********************************************************************
+begin-procedure to_li_date( $date,:$date_out,$date_string,#long)! Datum zu Li Datum
+!**********************************************************************
+
+if #long > 0 
+	let $date_to_string = {date_li_long}
+else
+	let $date_to_string = {date_li_short}
+end-if
+
+
+begin-select
+to_char(to_date($date,$date_string),$date_to_string) &li_date
+	let $date_out = &li_date
+from dual
+end-select
+
+end-procedure
+
+
+! mit zus�tzlichem parameter branche sp�ter
+!******************************************************************************
+begin-procedure to_adrid2 ($extadrid,:$adrid )!Holt adresse aus UNLOC,SCACS
+!******************************************************************************
+! BETA 20091009 CR9838 order by desc entfernt
+let $adrid = ''
+
+! ADRID IS UNLOC
+begin-select 
+substr(akz_adrid,1,10)  &adrid
+	let $adrid = &adrid
+from SCDU_CODEUMS,SAKZ_KLASZO 
+where cdu_cdextern = $extadrid
+and akz_akgid = 'BRA'
+and akz_aklid = 'HAF'
+and cdu_adrid = {XDU2_UNLOC}
+and akz_adrid =  cdu_cdintern
+and cdu_attid = 'UNLOC'
+order by akz_adrid 
+end-select
+
+
+! ADRID IS SCAC
+if isblank( $adrid ) = 1
+
+begin-select
+substr(scdu.get_code('INT', 'SCAC', {XDU2_SCAC},$extadrid),1,10) &adrid2
+	let $adrid = &adrid2
+from dual 
+end-select
+
+end-if
+!----------------------
+
+
+! ADRID IS LBASE
+if isblank( $adrid ) = 1
+
+let #isnum = 0
+
+!check if number
+begin-select 
+is_number($extadrid) &isnum
+	let #isnum = &isnum
+from dual
+end-select
+
+if #isnum = 1
+
+begin-select 
+adr_adrid &adrid3
+	let $adrid = &adrid3
+from sadr_adresse
+where adr_adrid = $extadrid
+end-select
+
+end-if
+
+end-if
+!----------------------
+
+! ADRID IS BAD
+if isblank( $adrid ) = 1
+	let $tmp = ' UNGUELTIGE adresse ' || $extadrid
+	do raise_err2 ( $tmp ,$_ref, 2)
+end-if
+
+#debug_E show {TOOLS_FLAG} 'to_adrid: ' $extadrid ' wird adrid: ' $adrid
+
+end-procedure
+
+! **********************************************************************
+begin-procedure is_adrid ($adrid,:#yesno)
+! **********************************************************************
+
+let #is_num = 0
+let #yesno = 0
+
+begin-select
+is_number( $adrid ) &is_number
+	let #is_num = &is_number
+from dual
+end-select
+
+if #is_num = 1
+
+begin-select
+count(adr_adrid) &yesno
+	let #yesno = &yesno
+from sadr_adresse 
+where adr_adrid = $adrid
+end-select 
+
+end-if
+
+end-procedure
+
+
+
+
+! **********************************************************************
+begin-procedure to_unloc($extadrid,:$unloc ) 
+! **********************************************************************
+
+begin-select 
+nvl(scdu.get_code('EXT', 'UNLOC', {XDU2_UNLOC}, $extadrid),$extadrid) &unloc
+	let $unloc = &unloc
+from dual
+end-select
+
+end-procedure 
+
+! **********************************************************************
+Begin-Procedure get_zat_sdg ( $sdgid,$zat,:$wert ) ! get a zat from sdg
+! **********************************************************************
+
+begin-select
+sba_wert &sba_wert
+	let $wert = &sba_wert
+from SSBA_ATTR
+where sba_sdgid = $SDGID
+and sba_lfzl = 0
+and sba_attid = $zat
+end-select
+
+End-Procedure
+
+
+!******************************************************************************
+Begin-Procedure get_dfunr($dfuid,:$dfunr ) !xdu_tools: ohne kunden tab, mit conf.
+!******************************************************************************
+
+   let #dfu_laufnr = 0
+   let $host_key = 'XDFU_' || upper($dfuid)
+
+!DF�-Laufnummer aus Hostconfig holen
+begin-select
+cfg_nfeld + 1        	&dfunr_akt
+to_number(cfg_cfeld)    &dfunr_max
+cfg_cfgid         	&dfu_cfgid
+
+	if &dfunr_akt > &dfunr_max
+		do raise_err ( 'Nummerkreis in Hostkonfig �bergelaufen' , 2)
+		Let #dfu_laufnr = 0
+	else
+		Let #dfu_laufnr = &dfunr_akt
+	end-if
+
+FROM  scfg_config
+WHERE cfg_cfgid = $host_key
+FOR UPDATE OF cfg_nfeld
+end-select
+
+if #dfu_laufnr > 0
+
+	!Laufnummer um 1 erh�hen
+	let $dfu_laufnr = edit(#dfu_laufnr, '99999999')
+	let $dfu_laufnr = ltrim(rtrim($dfu_laufnr, ' '), ' ')
+
+begin-sql
+UPDATE scfg_config
+SET cfg_nfeld = $dfu_laufnr
+WHERE cfg_cfgid = $host_key
+end-sql
+
+   	let $dfunr = $dfu_laufnr
+
+end-if
+
+End-Procedure
+
+!******************************************************************************
+Begin-Procedure get_lfnr($lafid,$cnt,:$lfnr)
+!******************************************************************************
+let $lfnr = ''
+
+! versuch ueber die sdg la
+begin-select loops=1
+sda_ref &lfnr
+	let $lfnr = &lfnr
+from SSDA_SDGADR,SLAF_LEISTANF 
+where sda_satid = 'CZ' 
+and sda_sdgid = laf_sdgid
+and  laf_lafid = $lafid
+end-select
+
+
+! versuch falls eine fahrt la.
+if isblank($lfnr) = 1
+
+begin-select 
+sda_ref &lfnr2
+	let $lfnr = &lfnr2
+from SSDA_SDGADR,SLAF_LEISTANF s1,SLAF_LEISTANF s2 where
+sda_satid = 'CZ' 
+and sda_sdgid = s2.laf_sdgid
+and s2.laf_lauid = 'TR'
+and s2.laf_latid = 'TR'
+and s2.laf_farid = s1.laf_farid
+and  s1.laf_lafid = $lafid
+end-select
+
+end-if
+
+! im notfalss die lafid als lfnr
+if isblank($lfnr) = 1
+	let $lfnr = $lafid
+end-if
+
+let $lfnr = $lfnr || '_' || $cnt
+
+
+End-Procedure
+
+!******************************************************************************
+Begin-Procedure set_laf_lasid ($laf_lafid,$lasid)
+!******************************************************************************
+
+#debug_E show {TOOLS_FLAG} 'SET LASID OF LA: ' $laf_lafid ' TO ' $lasid
+
+begin-sql
+update SLAF_LEISTANF
+set laf_lasid = $lasid
+where laf_lafid = $laf_lafid
+end-sql
+	
+End-Procedure
+
+!******************************************************************************
+Begin-Procedure set_laf_sent ($laf_lafid,$DFUNR,$DFUEANZ)
+!******************************************************************************
+
+
+let $ins = 'Y'
+begin-select
+to_char (sysdate, 'DD.MM.YYYY HH24:MI:SS') &date
+nvl(SATL.get_satl($laf_lafid,'DFUEJOB'),'bad') &nr
+	if &nr <> 'bad'
+		let $ins = 'N'
+	end-if
+from dual
+end-select
+
+Let $DFUEANZ = edit ($DFUEANZ,'8889')
+
+	if ($ins = 'Y')
+		#debug_E show {TOOLS_FLAG}  'ATTR: INSERT' $laf_lafid
+		
+begin-sql on-error=raise_err2('INSERT of ATTRIBUTE FAILED',$laf_lafid,2)
+insert into SATL_ATTR (atl_lafid,atl_attid,atl_wert,atl_usrid,atl_aend ) VALUES ($laf_lafid,'DFUEJOB',$DFUNR,'giwe01',sysdate)
+end-sql
+
+begin-sql on-error=raise_err2('INSERT of ATTRIBUTE FAILED',$laf_lafid,2)
+insert into satl_attr(atl_lafid, atl_attid, atl_wert, atl_usrid, atl_aend) values ($laf_lafid, 'XDFU_DATUM', to_char(sysdate,'DDMMYYYYHH24Mi'), 'sped', sysdate)
+end-sql
+
+begin-sql on-error=raise_err2('INSERT of ATTRIBUTE FAILED',$laf_lafid,2)
+insert into SATL_ATTR (atl_lafid,atl_attid,atl_wert,atl_usrid,atl_aend ) VALUES ($laf_lafid,'DFUEANZ',$DFUEANZ,'giwe01',sysdate)
+end-sql
+	! ELSE ---
+	else
+		#debug_E show {TOOLS_FLAG} 'ATTR: UPDATE'
+
+begin-sql on-error=raise_err2('UPDATE of ATTRIBUTE FAILED',$laf_lafid,2)
+update SATL_ATTR 
+set atl_wert = $dfueanz, atl_aend = sysdate
+where atl_lafid  = $laf_lafid
+and atl_attid = 'DFUEANZ'
+end-sql	
+
+begin-sql on-error=raise_err2('UPDATE of ATTRIBUTE FAILED',$laf_lafid,2)
+update SATL_ATTR 
+set atl_wert = to_char(sysdate,'DDMMYYYYHH24Mi'), atl_aend = sysdate
+where atl_lafid  = $laf_lafid
+and atl_attid = 'XDFU_DATUM'
+end-sql
+	! END IF ---
+	end-if
+	
+!update laf_ktext (prozedur aus xdu_tools.inc -> xdu_AppendLafText)  
+!ACHTUNG es muss sichergestellt sein, dass
+!xdu_tools in der main inlcudiert wird.
+Let $date= &date
+Let $laftext = 'zuletzt �bermittelt: ' || $date || '  DFUE Nr.: ' || $DFUNR || '  Anz. Ausf�hrungen: ' || $dfueanz
+
+! GIWE 2007/10/17
+do AppendLafText_top ( $laf_lafid, $laftext)
+ 
+end-procedure
+
+
+!******************************************************************************
+!�bergebener Text wird an bestehenden LA-Text angeh�ngt
+! GIWE 2007/10/17
+Begin-Procedure AppendLafText_top($p_Lafid, $p_Text)
+!******************************************************************************
+
+Begin-Sql
+update SLAF_LEISTANF set laf_text = $p_text || chr(13) || chr(10) || 
+substr(laf_text,1,2000 - (length($p_text) + 10))  
+where laf_lafid = $p_lafid
+end-sql
+
+End-Procedure
+
+
+!******************************************************************************
+Begin-procedure get_dfu_counter ($lafid, $lauid, :$DFUENR, :$DFUEANZ)
+!******************************************************************************
+	#debug_E show {TOOLS_FLAG}  'getting dfue counter for laf ' $lafid ' lauid ' $lauid
+	
+begin-select
+nvl (SATL.get_satl ($lafid,'DFUEJOB'),'na') &dfuejob
+nvl (satl.get_satl ($lafid,'DFUEANZ') + 1, 1) &dfueanz
+	
+	Let $DFUENR   = &dfuejob
+	Let $DFUEANZ  = edit (&dfueanz,'8889')
+	
+	#debug_E show {TOOLS_FLAG} 'dfue job old: ' $DFUENR 
+
+	if ( $DFUENR = 'na' ) 
+		do get_dfunr($lauid,$DFUENR )
+	end-if	
+	
+	
+	#debug_E show {TOOLS_FLAG}  'dfue job new : ' $DFUENR
+	#debug_E show {TOOLS_FLAG}  'dfue anz new : ' $DFUEANZ
+  
+from dual	
+end-select
+end-procedure
+
+! **********************************************************************
+! inserts a attr to a shipment with value wert on lfzl 
+! **********************************************************************
+begin-procedure  set_sdg_attr ($sdgid,$attr,$wert,$lfzl)
+! insert oder update
+	let #found = 0
+	
+	#debug_E show {TOOLS_FLAG}  'set attr ' $attr ' with value ' $wert ' for shipment ' $sdgid ' lfzl ' $lfzl
+	
+	! first of all check if we got values which do make sense
+	if isblank($wert) = 1
+		let $tmp =  'Can NOT set Attributes with NULL value. attr was: ' || $attr || ' shipment was: ' || $sdgid  
+		do raise_err2($tmp,$sdgid,2)
+	end-if
+	
+	
+	
+begin-select
+sba_wert	&sba_wert
+	let $sba_wert = &sba_wert
+	let #found = 1
+from SSBA_ATTR where
+sba_sdgid = $sdgid
+and sba_lfzl = $lfzl
+and sba_attid = $attr
+end-select
+
+if #found = 1
+	if $sba_wert <> $wert
+
+let $msg = 'DB-ERROR UPDATING sdg attribut ' || $attr
+begin-sql on-error=raise_err2($msg,$sdgid,2)
+update ssba_attr
+set sba_wert = $wert,
+sba_aend = sysdate
+where sba_sdgid = $sdgid
+and sba_attid = $attr
+and sba_lfzl = $lfzl
+end-sql
+	
+	end-if
+else
+
+! insert
+let $msg = 'DB-ERROR INSERTING sdg attribut ' || $attr
+begin-sql on-error=raise_err2($msg,$sdgid,2)
+insert into ssba_attr (sba_sdgid,sba_lfzl,sba_attid,sba_wert,sba_usrid,sba_aend)
+VALUES ($sdgid,$lfzl,$attr,$wert,'DFUE',sysdate)
+end-sql
+
+end-if
+
+
+end-procedure
+
+!------------------------------------------------------------------------------
+! SYSTEM FUNCTIONS
+!------------------------------------------------------------------------------
+
+!******************************************************************************
+begin-procedure move_file ( $out,$out2) ! verschiebt das entsanden file.
+!******************************************************************************
+
+   let #cmdstat = 0
+   let $SYSCMD = 'mv ' || $out || ' ' || $out2
+   call system using $SYSCMD #cmdstat
+
+End-Procedure
+
+!******************************************************************************
+begin-procedure del_file ( $file ) ! rm file
+!******************************************************************************
+
+   let #cmdstat = 0
+   let $SYSCMD = 'rm ' || $file
+   call system using $SYSCMD #cmdstat
+
+End-Procedure
+
+
+!******************************************************************************
+begin-procedure copy_file ( $out,$out2) ! verschiebt das entsanden file.
+!******************************************************************************
+
+   let #cmdstat = 0
+   let $SYSCMD = 'cp ' || $out || ' ' || $out2
+   call system using $SYSCMD #cmdstat
+
+End-Procedure
+
+!******************************************************************************
+begin-procedure split_filename($filename,:$dir,:$file ) ! holt dir, filename
+!******************************************************************************
+
+begin-select 
+substr($filename,1,instr($filename,'/',-1,1))	&dir
+substr($filename,instr($filename,'/',-1,1) + 1,length($filename)- instr($filename,'/',-1,1) + 1) &file
+	let $dir	=	&dir
+	let $file	=	&file
+from
+dual
+end-select
+
+end-procedure
+
+
+!******************************************************************************
+begin-procedure exec_li_module($p_ModName, $p_Parameters ) ! zB: AKKU1=23;ZUFELD1A=test
+!******************************************************************************
+
+!  BETA 20130613: : CR17461 Firma 6000 statt 7000
+    let $syscmd = '/d1/group/sped/sh/li.sh -d -x ' || $p_ModName || ' 6000 "' || $p_Parameters || '"'
+    let #cmdstat = -9999
+    
+    #debug_E show {TOOLS_FLAG}  'EXE LI MODULE ' $p_ModName ' with ' $p_Parameters
+    
+    call system using $syscmd #cmdstat
+    
+!    if #cmdstat != 0
+!    	let $msg = 'LI exec failed: ' ||  $p_ModName
+!    	do raise_err ( $msg,0)
+!    end-if
+end-procedure
+
+
+
+
+
+
+!------------------------------------------------------------------------------
+! ERROR HANDLING
+!------------------------------------------------------------------------------
+
+!******************************************************************************
+begin-procedure raise_err2 ( $msg, $hintin, #fatal)
+!******************************************************************************
+
+	let #cmdstat = 0
+	
+	! is an sqr specific mail address set?
+	#IFDEF ERRMAIL
+		let $errmail = {ERRMAIL}
+	#ELSE
+		let $errmail = {STDERRMAIL}
+	#ENDIF
+	
+	! subject prefix
+	let $subpre = 'LETRA '
+	let $user = ''
+	do get_full_hint ($hintin,'Y',$msg,$hint,$country,$user)	
+	let $repname = '{repname}'
+	
+	show  'raise err hint ' $hint 
+	
+	
+	! decide how severe the error is
+	evaluate #fatal
+	
+	! stop and inform if we can get a usrid.	
+	when = {FATALUSR}
+	   if length($_TmpOutput) > 0 and length($_ErrOutput) > 0
+
+			let $sub = $subpre ||  'ERROR ' || $repname
+			if length($country) > 0
+				let $sub = $sub || ' ('	|| $country || ')'	 
+			end-if
+			
+			if length($user) > 0
+				do send_mail2 ($msg,$sub,$user,{ERRMAILFROM},$hint,$_TmpOutput)
+			end-if
+			
+			#debug_E show {TOOLS_FLAG}  'MOVING TMP file ( ' $_TmpOutput ' ) to ERR  file ( ' $_ErrOutput ' )'	   		
+			let $SYSCMD = 'mv ' || $_TmpOutput || ' ' || $_ErrOutput	   		
+			call system using $SYSCMD #cmdstat	
+
+	   end-if
+	   break
+	! stop and move file to err
+	! NOMAIL	
+	when = {FATALNOMAIL}
+	   if length($_TmpOutput) > 0 and length($_ErrOutput) > 0
+
+			let $sub = $subpre || 'ERROR ' || $repname
+			if length($country) > 0
+				let $sub = $sub || ' ('	|| $country || ')'	 
+			end-if   		
+			#debug_E show {TOOLS_FLAG}  'MOVING TMP file ( ' $_TmpOutput ' ) to ERR  file ( ' $_ErrOutput ' )'	   		
+			let $SYSCMD = 'mv ' || $_TmpOutput || ' ' || $_ErrOutput	   		
+			call system using $SYSCMD #cmdstat	
+
+	   end-if
+	   break
+	   
+	! warn but resume
+	! SENDMAIL
+	! GIWE  2007/10/23 
+		when = {WARNMAIL2} ! NOBREAK
+		! warn only once 
+		if ( #_err <> 1 )
+			let $sub = $subpre || 'WARNING ' || $repname
+			if length($country) > 0
+				let $sub = $sub || ' ('	|| $country || ')'	 
+			end-if
+
+			if length($user) = 0
+				let $user = $errmail
+			end-if
+
+			do send_mail2 ($msg,$sub,$user,{ERRMAILFROM},$hint,$_TmpOutput)
+		end-if
+			
+	! GIWE 2007/10/23 mit break
+	when = {WARNMAIL} 
+		! warn only once 
+		if ( #_err <> 1 )
+			let $sub = $subpre || 'WARNING ' || $repname
+			if length($country) > 0
+				let $sub = $sub || ' ('	|| $country || ')'	 
+			end-if
+			
+			if length($user) = 0
+				let $user = $errmail
+			end-if
+			
+			do send_mail2 ($msg,$sub,$user,{ERRMAILFROM},$hint,$_TmpOutput)
+		end-if
+		
+		break
+		
+	! stop but try again later move file back
+	! NOMAIL
+	when = {RETRYNOMAIL} 
+		if length($_TmpOutput) > 0 and length($_origOutput) > 0
+			#debug_E show {TOOLS_FLAG}  'MOVING TMP file ( ' $_TmpOutput ' ) back to OK file ( ' $_origOutput ' ) for next try'
+			let $SYSCMD = 'mv ' || $_TmpOutput || ' ' || $_origOutput
+			call system using $SYSCMD #cmdstat
+	  	end-if
+		break
+		
+	! stop and move file to err  
+	! SENDMAIL
+	when = {FATALMAIL}	   	   
+	   if length($_TmpOutput) > 0 and length($_ErrOutput) > 0
+	   		
+	   		let $sub = $subpre ||  'ERROR ' || $repname
+	   		if length($country) > 0
+				let $sub = $sub || ' ('	|| $country || ')'	 
+			end-if
+
+			if length($user) = 0
+				let $user = $errmail
+			end-if
+			
+	   		do send_mail2 ($msg,$sub,$user,{ERRMAILFROM},$hint,$_TmpOutput)
+	   		
+			#debug_E show {TOOLS_FLAG}  'MOVING TMP file ( ' $_TmpOutput ' ) to ERR  file ( ' $_ErrOutput ' )'	   		
+			let $SYSCMD = 'mv ' || $_TmpOutput || ' ' || $_ErrOutput	   		
+	   		call system using $SYSCMD #cmdstat	
+	   		
+	   end-if
+	   break
+	end-evaluate
+	
+	
+	! the following errors cause a stop
+	! GIWE  2007/10/23  bei 5 udn 6 auch stop !!
+	if ( #fatal = 1 or #fatal = 2 or #fatal = 3 or #fatal = 5 or #fatal = 6 )
+		! display error message
+		show '(ERROR) ' $msg 
+		show '(ERROR) HINT: ' $hint
+		stop
+	end-if 
+	
+	! display warning message
+	show '(WARN) ' $msg 
+	show '(WARN) HINT: ' $hint
+	
+	! GLOBAL err var.
+	if ( #_err <> 1 )
+		let #_err = 1
+	end-if
+	
+end-procedure
+
+!******************************************************************************
+begin-procedure get_full_hint ($val,$update_la,$msg,:$hint,:$country,:$user)
+!******************************************************************************
+
+let #found = 0
+let $sdgid = ''
+let $farid = ''
+let $lfnr = ''
+! DB optimization
+! SDG SUCH IS USED, not SDA_REF to minimize joins
+
+! --------- if val is lfnr 
+if instr($val,'-',1) = 0
+	
+begin-select
+sdg_such  &sdg_such1
+sdg_sdgid &sdg_sdgid1
+laf_farid &far_farid1
+	let #found = 1
+	let $hint = &sdg_such1 || ' ' || &sdg_sdgid1 || ' ' || &far_farid1
+	
+	! needed for LA search
+	let $sdgid = &sdg_sdgid1 
+	let $farid = &far_farid1
+	let $lfnr  = &sdg_such1
+from 
+SSDG_SENDUNG,SLAF_LEISTANF
+where  sdg_such = $val
+and laf_sdgid (+) = sdg_sdgid 
+and laf_latid (+) = 'TR'
+and laf_lauid (+) = 'TR'
+!BETA 20160725  : Zeitraum f�r Sendungssuche auf 60 Tage reduziert
+and sdg_datum > sysdate -60
+end-select
+	
+end-if
+
+
+! --------- check if shipment
+if instr($val,'-',3) > 0 and #found = 0
+
+begin-select 
+sdg_such  &sdg_such2
+sdg_sdgid &sdg_sdgid2
+laf_farid &far_farid2
+	let #found = 1
+	let $hint = &sdg_such2 || ' ' || &sdg_sdgid2 || ' ' || &far_farid2
+	
+	! need for LA search
+	let $sdgid = &sdg_sdgid2 
+	let $farid = &far_farid2
+	let $lfnr  = &sdg_such2
+from SLAF_LEISTANF,SSDG_SENDUNG where sdg_sdgid = $val
+and laf_latid (+) = 'TR'
+and laf_lauid (+) = 'TR'
+and laf_sdgid (+) = sdg_sdgid
+end-select
+
+end-if
+
+! --------- check if fahrt
+if #found = 0
+
+begin-select 
+far_farid &far_farid3	
+laf_sdgid &sdg_sdgid3
+(select sdg_such from SSDG_SENDUNG where sdg_sdgid = laf_sdgid ) &sdg_such3
+	let #found = 1
+	let $hint = &sdg_such3 || ' ' || &sdg_sdgid3 || ' ' || &far_farid3
+
+	! need for LA search
+	let $sdgid = &sdg_sdgid3 
+	let $farid = &far_farid3
+	let $lfnr  = &sdg_such3
+from SFAR_FAHRT,SLAF_LEISTANF where far_farid = $val
+and laf_latid (+) = 'TR'
+and laf_lauid (+) = 'TR'
+and laf_farid (+) = far_farid
+end-select
+
+end-if
+! --------- check if la
+if #found = 0
+
+begin-select 
+l2.laf_sdgid &sdg_sdgid4
+l2.laf_farid &far_farid4
+nvl((select sdg_such from SSDG_SENDUNG where sdg_sdgid = l2.laf_sdgid ),l1.laf_lafid)  &sdg_such4
+	let #found = 1
+	let $hint = &sdg_such4 || ' ' || &sdg_sdgid4 || ' ' || &far_farid4
+
+	! need for LA search
+	let $sdgid = &sdg_sdgid4
+	let $farid = &far_farid4
+	let $lfnr  = &sdg_such4
+from SLAF_LEISTANF l1,SLAF_LEISTANF l2 
+where l1.laf_lafid = $val
+and l2.laf_farid (+) = l1.laf_farid
+and l2.laf_latid (+) = 'TR'
+and l2.laf_lauid (+) = 'TR'
+end-select
+
+end-if
+
+
+! if we got a sdgid we try to get the country
+if length($sdgid) > 0
+
+begin-select 
+decode(sta_staid,'US','USA',sta_bez)  &staat
+	let $country = &staat
+from SADR_ADRESSE,SSDA_SDGADR,SSTA_STAAT
+where sda_adrid = adr_adrid
+and sda_sdgid = $sdgid
+and sda_satid = 'CN'
+and adr_staid = sta_staid
+end-select
+
+end-if
+
+
+! try to inform somebody who may be concerned
+! first laf
+let $user = ''
+
+#IFDEF LAUID
+
+if length($lfnr) > 0
+begin-select 
+nvl(laf_usridf,laf_usridv) &mailusr
+	show 'mailuser ' &mailusr
+	if length(&mailusr) >= 6
+		let $user = &mailusr
+	end-if
+from SLAF_LEISTANF,SSDA_SDGADR
+where laf_sdgid = sda_sdgid
+and laf_latid = 'DU'
+and laf_lauid = {LAUID}
+and sda_satid = 'CZ'
+and sda_ref = $lfnr
+end-select
+end-if
+
+#ENDIF
+
+if length($sdgid) > 0 and $user = ''
+begin-select 
+sdg_usrid &mailusr1
+	show 'mailuser1 ' &mailusr1
+	if length(&mailusr1) >= 6
+		let $user = &mailusr1
+	end-if
+from SSDG_SENDUNG 
+where sdg_sdgid = $sdgid
+end-select
+end-if
+
+if length($farid) > 0 and $user = ''
+begin-select 
+far_usrid &mailusr2
+	show 'mailuser2 ' &mailusr2
+	if length(&mailusr2) >= 6
+		let $user = &mailusr2
+	end-if
+from SFAR_FAHRT 
+where far_farid = $farid
+end-select
+end-if
+
+
+begin-select
+KOM_KOMNR &usr_mail
+	if length(&usr_mail) > 8
+		! we found an user
+		show 'IN FULL HINT found a user MAIL: ' &usr_mail
+		let $user =  &usr_mail
+	end-if
+from SUSR_USER,SKOM_KOMNR 
+where usr_usrid = substr($user,1,6)
+and kom_adrid = usr_adrid
+and kom_kmtid = 'EM'
+end-select
+ 
+! do we want to udpate las?
+if $update_la = 'Y'
+
+! if we got a lauid, we may search for the LA(s)
+#IFDEF LAUID
+
+!-- check all lafids of lfnr
+if isblank($lfnr) = 0 and #found > 0
+
+begin-select
+laf_lafid 	&laf_lafid1
+	let #found = 0
+	do error_to_laftxt ( &laf_lafid1,$msg)
+from SLAF_LEISTANF,SSDA_SDGADR
+where laf_sdgid = sda_sdgid
+and laf_latid = 'DU'
+and laf_lauid = {LAUID}
+and sda_satid = 'CZ'
+and sda_ref = $lfnr
+end-select
+
+end-if
+
+!-- check lafid of sdgid
+if isblank($sdgid) = 0 and #found > 0
+
+begin-select 
+laf_lafid  &laf_lafid2
+	let #found = 0
+	do error_to_laftxt ( &laf_lafid2,$msg)
+from SLAF_LEISTANF where laf_sdgid = $sdgid
+and laf_latid = 'DU'
+and laf_lauid = {LAUID}
+end-select
+
+end-if
+
+!-- check lafid of farid
+if isblank($farid) = 0 and #found > 0
+
+begin-select 
+laf_lafid  &laf_lafid3
+	let #found = 0
+	do error_to_laftxt ( &laf_lafid3,$msg)
+from SLAF_LEISTANF where laf_farid = $farid
+and laf_latid = 'DU'
+and laf_lauid = {LAUID}
+end-select
+
+end-if
+
+#ENDIF
+
+end-if
+
+end-procedure
+
+!******************************************************************************
+begin-procedure error_to_laftxt ( $lafid,$msg )
+!******************************************************************************
+
+show ' set ERROR laftext ' $lafid ' msg: ' $msg
+
+rollback
+
+! BETA 2007-10-05: Zwischenl�sung f�r LAF_TEXT Update
+!begin-sql
+!update slaf_leistanf set laf_text =
+! ( select  rtrim(xtools.split(laf_text,'[',1),chr(13) || chr(10)) || chr(13) || chr(10) || '[ERROR ('|| to_char(sysdate,'DD.MM.YYYY HH24:Mi') || '): ' || $msg || ']' || decode(nvl(length(xtools.split(laf_text,']',2)),0),0,'',chr(13) || chr(10)) || 
+!	ltrim(xtools.split(laf_text,']',2),chr(13) || chr(10))  
+!	from SLAF_LEISTANF where laf_lafid = $lafid )
+!where laf_lafid = $lafid
+!end-sql
+
+
+! GIWE 2007/10/17 neue loesung und umkehrung der reihenfolge
+! beta loesung problem: alle 10 min eine neue zeile im laf text wenn eine LA ( z.b. xpp haengt )
+
+begin-select 
+'[ERROR ('|| to_char(sysdate,'DD.MM.YYYY HH24:Mi') || '): ' || $msg || ']' &msg
+decode(substr(laf_text,1,1),'[',(select substr(laf_text,instr(laf_text,']')+3,2000) from SLAF_LEISTANF where laf_lafid = $lafid),laf_text) &txt
+	let $msg = &msg
+	let $txt = &txt
+from SLAF_LEISTANF 
+where laf_lafid = $lafid
+end-select
+
+begin-sql
+update SLAF_LEISTANF set laf_text = $msg || chr(13) || chr(10) ||  substr($txt,1,2000 - (length($txt) + 10))  
+where laf_lafid = $lafid
+end-sql
+
+commit
+
+
+
+end-procedure
+
+!******************************************************************************
+begin-procedure send_mail2 ( $msg,$sub,$to,$from,$hint,$file )
+!******************************************************************************
+
+! get a fresh mailfile and delete it later
+let #FileNo = 899
+let $dir = '/tmp'
+
+! csv einstellungen
+Let $lf  = chr(10) ! Linefeed
+Let $cr	 = chr(13) ! Carriage return 
+let $repname = '{repname}'
+
+! there may be multiple hints
+unstring $hint by ' ' into $hint1 $hint2 $hint3
+
+
+let $sqr-pid = edit(#_sqr-pid,'88888888888')
+
+begin-select
+to_char(sysdate,'ddmmhh24Miss') || $repname || '_' || $sqr-pid || '_xdu_tools_mail.txt' &mfile
+to_char(sysdate,'ddmmhh24Miss') &now
+   let $mfile = &mfile
+from dual
+end-select
+
+let $MailOutput  = $dir || '/' ||  $mfile
+let $ToOutput    = $repname || '.log'
+let $ToOutput2    = $repname || '.dat'
+
+! BETA 20181106  : CR 23384 LINUX Anpassung
+
+let $msgh1 = 'PROGRAMM: ' || $repname 
+let $msgh2 = 'HINWEIS1: ' || $hint1 
+let $msgh3 = 'HINWEIS2: ' || $hint2 
+let $msgh4 = 'HINWEIS3: ' || $hint3 
+let $msgh5 = 'Die Fehlermeldung war:  ' || $msg
+
+
+! try to get logfile
+do split_filename($_sqr-report,$dummy,$sqr_rep ) 
+
+! GIWE 2007/23/10
+begin-select 
+'$SQR/log/' || substr($sqr_rep,1,instr($sqr_rep,'.',-1)) || 'log' &logfile
+	let $logfile = &logfile
+from dual
+end-select
+
+! try to get user e-mail from db
+! username must be 6 digits ( to exclude oper ... )
+let $user = ''
+let $syscmd = 'ls -l1 ' || $logfile || ' | awk ' || chr(123) || ''' print $3 ''' || chr(125) || ' > ' || $MailOutput
+call system using $syscmd #cmdstat  
+
+show $syscmd
+
+do xdu_OpenFile($MailOutput, #FileNo, 'r')
+	read #FileNo into $user:10
+do xdu_CloseFile(#FileNo)
+
+
+if  length($user) >= 6
+
+begin-select 
+KOM_KOMNR &usr_mail
+	! wenn user gesetzt, dann nur mail an den user
+	if length(&usr_mail) > 8
+		let $to = &usr_mail	
+	end-if
+from SUSR_USER,SKOM_KOMNR where usr_usrid = substr($user,1,6)
+and kom_adrid = usr_adrid
+and kom_kmtid = 'EM'
+end-select
+
+end-if
+
+!  BETA 20180221  : CR 23384 LINUX Anpassung
+do xdu_OpenFile($MailOutput, #FileNo, 'w')
+	write #FileNo from $msgh1 
+	write #FileNo from $msgh2 
+	write #FileNo from $msgh3 
+	write #FileNo from $msgh4 
+	write #FileNo from $msgh5 
+	write #FileNo from 'Dieses E-Mail wurde automatisch generiert, bitte nicht direkt antworten.'
+do xdu_CloseFile(#FileNo)
+
+! BETA 20080912 : Alle Error-Mails werden nun zus�tzlich an  tms.as@logwin-logistics.com geschickt.
+
+let $mube = ''
+let $nafta = ''
+if instr($sub,'LETRA',0) > 0
+	show 'LETRA in subject, sending to MUBE'
+! BETA 20131129 : EMAIL Adresse angepasst
+! SEJO 20160823 CR 21402  : Weitere EMAIL-Adresse MG_WIEN.NAFTA hinzugef�gt - damit wird der User in $to �berschrieben
+! SEJO 20161004  : CR 21530  Beschr�nkung Mail auf Report xrb_scan
+	let $mube = 'chep.solutions-at@logwin-logistics.com'
+       if $repname = 'xrb_scan'
+          let $to = 'WIEN.NAFTA@logwin-logistics.com'
+       end-if
+end-if
+
+! BETA 20180221  : CR 23384 LINUX Anpassung
+!------------------  deaktiviert ANFANG
+!do split_filename($file,$thisdir,$thisfile )
+!Let $thisfile = '/tmp/' || $sqr-pid || '_' || &now || '_' || $thisfile 
+!do copy_file ( $file,$thisfile)
+!let $sys_cmd =  '( cat ' || $MailOutput || ' ) | mailx -s ' || chr(34) || $sub || chr(34) || ' -a ' || $logfile || ' -a ' || $thisfile ||  ' -r ' || $from  || ' ' ||  $to || ' ' || {ALWAYSTO} || ' ' || $mube 
+!------------------  deaktiviert ENDE
+
+let $sys_cmd =  '( cat ' || $MailOutput || ' ) | mailx -s ' || chr(34) || $sub || chr(34) || ' -a ' || $logfile ||  ' -r ' || $from  || ' ' ||  $to || ' ' || {ALWAYSTO} || ' ' || $mube 
+show $sys_cmd
+let #cmdstat = 0
+call system using $sys_cmd #cmdstat     
+
+let $cmdstat = #cmdstat
+show '*** SysCommand returned: ' $cmdstat
+
+
+! delete mailfile
+! do del_file ( $MailOutput )
+
+end-procedure
+
+
+!*
+!*
+!*
+!*
+!*
+!*
+!*
+!*
+!*
+!*
+!*
+!------------------------------------------------------------------------------
+! DEPRECATED DO NOT USE in NEW SQRS
+!------------------------------------------------------------------------------
+
+!******************************************************************************
+! _DEPRECATED_ USE to_adrid2 in new SQRS
+begin-procedure to_adrid ($extadrid,:$adrid )!Holt adresse aus UNLOC,SCACS
+!******************************************************************************
+
+begin-select
+substr(nvl(nvl(scdu.get_code('INT', 'UNLOC', {XDU2_UNLOC}, $extadrid),
+	scdu.get_code('INT', 'SCAC', {XDU2_SCAC},$extadrid)),$extadrid),1,10) &adrid
+	let $adrid = &adrid
+from dual 
+end-select
+
+begin-select
+is_number( $adrid ) &is_number
+	let #is_num = &is_number
+from dual
+end-select
+
+if #is_num = 0
+	let $tmp = ' UNGUELTIGE adresse ' || $extadrid
+	do raise_err ( $tmp , 2)
+end-if
+
+end-procedure
+
+
+
+!******************************************************************************
+! _DEPRECATED_ USE raise_err2 in new reports
+begin-procedure raise_err ( $msg , #fatal) 
+!******************************************************************************
+	! GLOBAL err var.
+	if ( #_err <> 1 )
+		let #_err = 1
+	end-if
+	let #cmdstat = 0
+	
+	! is an sqr specific mail address set?
+	#IFDEF ERRMAIL
+		let $errmail = {ERRMAIL}
+	#ELSE
+		let $errmail = {STDERRMAIL}
+	#ENDIF
+	
+	
+	
+	
+	! display error message
+	show '(ERROR) ' $msg
+
+	evaluate #fatal
+	! stop but try again later
+	when = 3 
+		if length($_TmpOutput) > 0 and length($_origOutput) > 0
+			#debug_E show {TOOLS_FLAG}  'MOVING TMP file ( ' $_TmpOutput ' ) back to OK file ( ' $_origOutput ' ) for next try'
+			let $SYSCMD = 'mv ' || $_TmpOutput || ' ' || $_origOutput
+			call system using $SYSCMD #cmdstat
+	  	end-if
+		break
+	! stop and move file to err
+	when = 2	   	   
+	   if length($_TmpOutput) > 0 and length($_ErrOutput) > 0
+
+	   		
+	   		!let $repname = '{repname}'
+	   		!let $sub = ' ERROR ' || $repname
+	   		!do send_mail2 ($msg,$sub,$errmail,'error@at.thiel-logistik.com','',$_TmpOutput)
+	   		
+			#debug_E show {TOOLS_FLAG}  'MOVING TMP file ( ' $_TmpOutput ' ) to ERR  file ( ' $_ErrOutput ' )'	   		
+			let $SYSCMD = 'mv ' || $_TmpOutput || ' ' || $_ErrOutput	   		
+	   		call system using $SYSCMD #cmdstat	
+	   		
+	   end-if
+	   break
+	end-evaluate
+	
+	! all errors > 0 cause a stop
+	if ( #fatal > 0 )				
+		stop
+	end-if 
+	
+end-procedure
+
