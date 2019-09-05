@@ -18,7 +18,7 @@
 !*A|  BETA 20180221  : CR 23384 LINUX Anpassung
 !*A|  BETA 20181106  : CR 23384 LINUX Anpassung
 !**+----------------------------------------------------------------------------
-
+ 
 #define XDU2_SCAC 	 5068403
 #include 'xdu_tools.inc'
 

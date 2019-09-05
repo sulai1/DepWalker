@@ -57,20 +57,25 @@ class Parser(object):
 def Identifier(ignore_case=False):
 	return Parser(r"(?P<identifier>\w*)", groups=["identifier"])
 
-def Keyword(keyword, ignore_case=False):
+def Keyword(keyword, ignore_case=False, hide=False):
 	grpname = Parser.group_name(keyword)
-	kw=""
+	kw = ""
+	# detect regex escape sequences
 	for c in keyword :
-		if Parser.ESCAPE.find(c)>0:
+		if Parser.ESCAPE.find(c) > 0:
 			kw+=r"\{0}".format(c)
+	# detect valid name
 	if len(grpname) == 0:
 		grpname = Parser.error_grp()
-	if ignore_case :
+	# hide group
+	if hide :
+		regex = "("
+	else:
 		regex = r"(?P<{0}>".format(grpname)
+	# add respective case character
+	if ignore_case :
 		for c in kw :
-			if Parser.ESCAPE.find(c)>0:
-				regex+=r"[\{0}]".format(c)
-			elif c.islower() :
+			if c.islower() :
 				regex += r"[{0}{1}]".format(c,c.upper())
 			elif c.isupper :
 				regex += r"[{0}{1}]".format(c,c.lower())
@@ -78,15 +83,21 @@ def Keyword(keyword, ignore_case=False):
 				regex+=r"[{0}]".format(c)
 		regex+=")"
 	else:
-		regex = r"(?P<{0}>{1})".format(grpname,kw)
-	return Parser(regex, groups=[grpname])
+		regex += r"{0})".format(kw)
+	if hide :
+		return Parser(regex)
+	else:
+		return Parser(regex, groups=[grpname])
 
-def Except(string,ignore_case=False):
-	return Parser(r"(?P<content>[\s\S]*?)",groups=[Parser.group_name("content")]) + Keyword(string,ignore_case)
+def Except(keyword,ignore_case=False,hide=False,hide_keyword=False):
+	if hide:
+		return Parser(r"([\s\S]*?)") + Keyword(keyword,ignore_case,hide_keyword)
+	else:
+		return Parser(r"(?P<content>[\s\S]*?)",groups=[Parser.group_name("content")]) + Keyword(keyword,ignore_case,hide_keyword)
 
-def Multiline(start, end, ignore_case=False):
-	s = Keyword(start, ignore_case)
-	c = Except(end, ignore_case)
+def Multiline(start, end, ignore_case=False, hide=False,hide_outer=True):
+	s = Keyword(start, ignore_case=ignore_case,hide=hide)
+	c = Except(end, ignore_case=ignore_case,hide=hide)
 	return s + c
 
 def Whitespaces():
@@ -95,7 +106,7 @@ def Whitespaces():
 
 
 def Procedure(start,end,ignore_case=False):
-	return Keyword(start,ignore_case) + Whitespaces() + Identifier() + Whitespaces() + Multiline("(",")") + Except(end)
+	return Keyword(start,ignore_case,hide=True) + Whitespaces() + Identifier() + Whitespaces() + Multiline("(",")",hide_outer=True) + Except(end,hide=True)
 	#return
 	#Parser("Procedure",r"(?i)(?P<comment>{2}*)begin-procedure[\s]+{0}[\s]*{1}([\s\S]*?)end-procedure".format(Parser.IDENTIFIEER,Parser.PARAMETERS,Parser.COMMENT,['identifier','parameters','comment']))
 def Define():
