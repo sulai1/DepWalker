@@ -38,24 +38,30 @@ class Parser(object):
 		return newname
 
 	def __add__(self,other):
-		g = self.groups
-		while  self.rename_dups(other):
-			pass
-		g.extend(other.groups)
+		g = self.groups[:]
+		if len(other.groups) > 0:
+			while  self.rename_dups(other):
+				pass
+			g.extend(other.groups)
 		return Parser(self.regex + other.regex,g)
 
 	def rename_dups(self,other):
 		b_dups = False
-		for gs in self.groups :
-			for i in range(0, len(other.groups)) :
-				if gs == other.groups[i] :
-					other.regex = other.regex.replace(other.groups[i],other.groups[i] + "I")
-					other.groups[i]+="I"
-					b_dups = True
+		if len(self.groups) > 0 and len(other.groups) > 0 :
+			for gs in self.groups :
+				for i in range(0, len(other.groups)) :
+					if gs == other.groups[i] :
+						other.regex = other.regex.replace(other.groups[i],other.groups[i] + "I")
+						other.groups[i]+="I"
+						b_dups = True
 		return b_dups
-
-def Identifier(ignore_case=False):
-	return Parser(r"(?P<identifier>\w*)", groups=["identifier"])
+	
+def Identifier(name=None):
+	if name == None:
+		return Parser(r"(\w*)")
+	else:
+		groupname = Parser.group_name(name)
+		return Parser(r"(?P<{}>\w*)".format(groupname), groups=[groupname])
 
 def Keyword(keyword, ignore_case=False, hide=False):
 	grpname = Parser.group_name(keyword)
@@ -64,6 +70,8 @@ def Keyword(keyword, ignore_case=False, hide=False):
 	for c in keyword :
 		if Parser.ESCAPE.find(c) > 0:
 			kw+=r"\{0}".format(c)
+		else:
+			kw+=c
 	# detect valid name
 	if len(grpname) == 0:
 		grpname = Parser.error_grp()
@@ -89,31 +97,32 @@ def Keyword(keyword, ignore_case=False, hide=False):
 	else:
 		return Parser(regex, groups=[grpname])
 
-def Except(keyword,ignore_case=False,hide=False,hide_keyword=False):
+def Except(name,keyword,ignore_case=False,hide=False,hide_keyword=False):
 	if hide:
 		return Parser(r"([\s\S]*?)") + Keyword(keyword,ignore_case,hide_keyword)
 	else:
-		return Parser(r"(?P<content>[\s\S]*?)",groups=[Parser.group_name("content")]) + Keyword(keyword,ignore_case,hide_keyword)
+		grpname = Parser.group_name(name)
+		return Parser(r"(?P<{}>[\s\S]*?)".format(grpname),groups=[grpname]) + Keyword(keyword,ignore_case,hide_keyword)
 
-def Multiline(start, end, ignore_case=False, hide=False,hide_outer=True):
-	s = Keyword(start, ignore_case=ignore_case,hide=hide)
-	c = Except(end, ignore_case=ignore_case,hide=hide)
+def Multiline(name,start, end,  ignore_case=False, hide=False,hide_outer=True):
+	s = Keyword(start, ignore_case=ignore_case,hide=hide_outer)
+	c = Except(name,end, ignore_case=ignore_case,hide=hide,hide_keyword=hide_outer)
 	return s + c
 
 def Whitespaces():
 	return Parser("\s*")
 
-
+def Number():
+	return Parser("((([0-9]*)?.)*)?[0-9]*(.([0-9]*)?)?")
 
 def Procedure(start,end,ignore_case=False):
-	return Keyword(start,ignore_case,hide=True) + Whitespaces() + Identifier() + Whitespaces() + Multiline("(",")",hide_outer=True) + Except(end,hide=True)
-	#return
-	#Parser("Procedure",r"(?i)(?P<comment>{2}*)begin-procedure[\s]+{0}[\s]*{1}([\s\S]*?)end-procedure".format(Parser.IDENTIFIEER,Parser.PARAMETERS,Parser.COMMENT,['identifier','parameters','comment']))
+	return Keyword(start,ignore_case,hide=True) + Whitespaces() + Identifier("procedure") + Whitespaces() + Multiline("parameter","(",")",hide_outer=True) + Except("body",end,hide_keyword=True)
+
 def Define():
 	return Parser("Define",r"(?m)#define[\s*](?P<define>\w*)[\s*]([\w,.]*[\s]*|'[\s\S]*?')")
 
 def Include():
-	return Parser("Include",r"(?m)#include[\s*]'([\w.]*)?'")
+	return Keyword("#include",hide=True) + Whitespaces() + Multiline("include","'","'",hide_outer=True)
 
 def Comment():
 	return Parser("Comment","(?P<comment>({}*))".format(Parserc.omment))

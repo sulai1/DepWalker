@@ -4,7 +4,8 @@ import math
 WIDTH = 60
 
 
-parser = Procedure("begin-procedure",'end-procedure',ignore_case=True)
+#parser = Procedure("begin-procedure",'end-procedure',ignore_case=True)
+parser = Include()
 fd = open('test.sqr','r')
 s = fd.read()
 #parser = Procedure()
