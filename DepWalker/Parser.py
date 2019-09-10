@@ -56,15 +56,10 @@ class Parser(object):
 						b_dups = True
 		return b_dups
 	
-def Identifier(name=None):
-	if name == None:
-		return Parser(r"(\w*)")
-	else:
-		groupname = Parser.group_name(name)
-		return Parser(r"(?P<{}>\w*)".format(groupname), groups=[groupname])
+def Identifier():
+		return Parser(r"\w*")
 
-def Keyword(keyword, ignore_case=False, hide=False):
-	grpname = Parser.group_name(keyword)
+def Keyword(keyword, ignore_case=False):
 	kw = ""
 	# detect regex escape sequences
 	for c in keyword :
@@ -72,14 +67,7 @@ def Keyword(keyword, ignore_case=False, hide=False):
 			kw+=r"\{0}".format(c)
 		else:
 			kw+=c
-	# detect valid name
-	if len(grpname) == 0:
-		grpname = Parser.error_grp()
-	# hide group
-	if hide :
-		regex = "("
-	else:
-		regex = r"(?P<{0}>".format(grpname)
+	regex=""
 	# add respective case character
 	if ignore_case :
 		for c in kw :
@@ -89,41 +77,45 @@ def Keyword(keyword, ignore_case=False, hide=False):
 				regex += r"[{0}{1}]".format(c,c.lower())
 			else :
 				regex+=r"[{0}]".format(c)
-		regex+=")"
 	else:
-		regex += r"{0})".format(kw)
-	if hide :
-		return Parser(regex)
-	else:
-		return Parser(regex, groups=[grpname])
+		regex += kw
+	return Parser(regex)
 
-def Except(name,keyword,ignore_case=False,hide=False,hide_keyword=False):
-	if hide:
-		return Parser(r"([\s\S]*?)") + Keyword(keyword,ignore_case,hide_keyword)
-	else:
-		grpname = Parser.group_name(name)
-		return Parser(r"(?P<{}>[\s\S]*?)".format(grpname),groups=[grpname]) + Keyword(keyword,ignore_case,hide_keyword)
-
-def Multiline(name,start, end,  ignore_case=False, hide=False,hide_outer=True):
-	s = Keyword(start, ignore_case=ignore_case,hide=hide_outer)
-	c = Except(name,end, ignore_case=ignore_case,hide=hide,hide_keyword=hide_outer)
-	return s + c
+def Except():
+	return Parser(r"([\s\S]*?)")
 
 def Whitespaces():
-	return Parser("\s*")
+	return Parser(r"[\s]*")
 
 def Number():
 	return Parser("((([0-9]*)?.)*)?[0-9]*(.([0-9]*)?)?")
 
 def Procedure(start,end,ignore_case=False):
-	return Keyword(start,ignore_case,hide=True) + Whitespaces() + Identifier("procedure") + Whitespaces() + Multiline("parameter","(",")",hide_outer=True) + Except("body",end,hide_keyword=True)
+	return Group(Comment(),name="comment",flag="*") + Keyword(start,ignore_case) + Whitespaces() + Group(Identifier(),name="procedure") + Whitespaces() + Keyword("(") + Group(Except(),name="parameter") + Keyword(")") + Group(Except(),name="body") + Keyword(end) 
 
 def Define():
 	return Parser("Define",r"(?m)#define[\s*](?P<define>\w*)[\s*]([\w,.]*[\s]*|'[\s\S]*?')")
 
 def Include():
-	return Keyword("#include",hide=True) + Whitespaces() + Multiline("include","'","'",hide_outer=True)
+	return Keyword("#include") + Whitespaces() + Keyword("'") + Group(Except(),name="include") + Keyword("'")
 
 def Comment():
-	return Parser("Comment","(?P<comment>({}*))".format(Parserc.omment))
-	
+	return Keyword("!") + Except() + Keyword(r"\n")
+
+def Group(parser,name="", flag=""):
+	"""The flag is either of the following:
+			an integer number indicating the number of the expected matches
+			'*' indicating any match
+			'+' indicating one ore more matches
+			'?' indicating that it may occurre once or not"""
+	g = parser.groups[:]
+	regex = "("
+	if len(name) > 0:
+		g.append(Parser.group_name(name))
+		regex += "?P<{}>".format(name)
+	regex+=parser.regex + ")"
+	if isinstance(flag,(int,long)):
+		regex+= "{" + flag + "}"
+	else:
+		regex+=flag
+	return Parser(regex,g)
