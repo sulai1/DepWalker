@@ -1,11 +1,13 @@
 ﻿import re
 
-
+COMMENT="!"
+separator='.'
+string_delimiter="'"
 
 class Parser(object):
-	""" The Parser parses a code file for its components."""
+	"""The Parser parses a code file for its components."""
 	ERROR_GRP = "err"
-	ESCAPE = "[\^$.|?*+(){}"
+	ESCAPE = '[\^$.|?*+(){}"'
 	id = 0
 
 	def __init__(self,regex,groups=[]):
@@ -81,27 +83,6 @@ def Keyword(keyword, ignore_case=False):
 		regex += kw
 	return Parser(regex)
 
-def Except():
-	return Parser(r"([\s\S]*?)")
-
-def Whitespaces():
-	return Parser(r"[\s]*")
-
-def Number():
-	return Parser("((([0-9]*)?.)*)?[0-9]*(.([0-9]*)?)?")
-
-def Procedure(start,end,ignore_case=False):
-	return Group(Comment(),name="comment",flag="*") + Keyword(start,ignore_case) + Whitespaces() + Group(Identifier(),name="procedure") + Whitespaces() + Keyword("(") + Group(Except(),name="parameter") + Keyword(")") + Group(Except(),name="body") + Keyword(end) 
-
-def Define():
-	return Parser("Define",r"(?m)#define[\s*](?P<define>\w*)[\s*]([\w,.]*[\s]*|'[\s\S]*?')")
-
-def Include():
-	return Keyword("#include") + Whitespaces() + Keyword("'") + Group(Except(),name="include") + Keyword("'")
-
-def Comment():
-	return Keyword("!") + Except() + Keyword(r"\n")
-
 def Group(parser,name="", flag=""):
 	"""The flag is either of the following:
 			an integer number indicating the number of the expected matches
@@ -119,3 +100,43 @@ def Group(parser,name="", flag=""):
 	else:
 		regex+=flag
 	return Parser(regex,g)
+
+def Or(a,b):
+	return Group(a+Parser("|")+b)
+
+def Except():
+	return Parser(r"[\s\S]*?")
+
+def Whitespaces():
+	return Parser(r"[\s]*")
+
+def Number():
+	return Parser("[0-9+]{0}*[0-9*]".format(separator))
+
+def String():
+	return Parser(string_delimiter) + Except() + Parser(string_delimiter)
+
+def Parameter():
+	return Keyword("(") \
+	+ Group(Except(),name="parameter") \
+	+ Keyword(")") \
+
+def Procedure(start,end,ignore_case=False):
+	return Group(Group(Comment(),flag="*"),name="comment") \
+			+ Keyword(start,ignore_case) \
+			+ Whitespaces() \
+			+ Group(Identifier(),name="procedure")  \
+			+ Whitespaces() \
+			+ Parameter()\
+			+ Group(Except(),name="body") \
+			+ Keyword(end) 
+
+def Define():
+	return Keyword("#define") + Whitespaces() + Group(Identifier(),name="identifier") + Whitespaces() +  Group(Or(Number(),String()),name="value",flag="?")
+
+def Include():
+	return Keyword("#include") + Whitespaces() + Keyword("'") + Group(Except(),name="include") + Keyword("'")
+
+def Comment():
+	return Parser(COMMENT) + Except() + Parser(r"\n")
+

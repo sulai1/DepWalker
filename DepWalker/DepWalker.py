@@ -1,4 +1,4 @@
-from  Parser import *
+from  src.parse import *
 import math
 
 WIDTH = 60
@@ -6,7 +6,7 @@ WIDTH = 60
 
 #parser = Procedure("begin-procedure",'end-procedure',ignore_case=True)
 parser = Procedure("begin-procedure","end-procedure",True)
-fd = open('test.sqr','r')
+fd = open('sqr\\xdu_tools2.inc','r')
 s = fd.read()
 #parser = Procedure()
 print("regex: "+parser.regex)

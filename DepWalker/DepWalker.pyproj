@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>36ffaa15-caff-4abc-95a9-9991d6c4d711</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>DepWalker.py</StartupFile>
+    <StartupFile>test\test1.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -22,16 +22,23 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Document.py">
+    <Compile Include="src\Document.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="DepWalker.py" />
+    <Compile Include="src\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="test\test1.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Parser.py" />
+    <Content Include="src\parse.py" />
+    <Content Include="sqr\test.sqr" />
+    <Content Include="sqr\xdu_tools.inc" />
     <Content Include="test - Copy.sqr" />
-    <Content Include="test.py" />
-    <Content Include="test.sqr" />
+    <Content Include="sqr\xdu_tools2.inc" />
   </ItemGroup>
   <ItemGroup>
     <Interpreter Include="env\">
@@ -43,6 +50,11 @@
       <PathEnvironmentVariable>PYTHONPATH</PathEnvironmentVariable>
       <Architecture>X64</Architecture>
     </Interpreter>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="src\" />
+    <Folder Include="test\" />
+    <Folder Include="sqr\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
