@@ -22,10 +22,13 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="src\Document.py">
+    <Compile Include="DepWalker.py" />
+    <Compile Include="src\document.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="DepWalker.py" />
+    <Compile Include="src\parser.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\__init__.py">
       <SubType>Code</SubType>
     </Compile>
